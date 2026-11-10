@@ -1173,7 +1173,7 @@
       return;
     }
 
-    // Save suggestion locally
+    // 1. Save suggestion locally as backup
     try {
       const stored = JSON.parse(localStorage.getItem(STORAGE_SUGGESTIONS_KEY) || '[]');
       stored.unshift({
@@ -1186,13 +1186,33 @@
       console.warn('Could not save suggestion', e);
     }
 
-    // Show only "Thank you for the suggestion"
+    // 2. Dispatch real email directly to harshjha.hj2008@gmail.com via FormSubmit AJAX
+    const userSender = state.currentUser ? state.currentUser.email : 'Guest User';
+    fetch('https://formsubmit.co/ajax/harshjha.hj2008@gmail.com', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({
+        _subject: 'TaskFlow: New Improvement Idea / Suggestion',
+        suggestion: suggestion,
+        submittedBy: userSender,
+        timestamp: new Date().toLocaleString()
+      })
+    }).then(res => {
+      console.log('Suggestion emailed to harshjha.hj2008@gmail.com', res);
+    }).catch(err => {
+      console.warn('Email dispatch warning:', err);
+    });
+
+    // Show "Thank you for the suggestion"
     formCard?.classList.add('hidden');
     thankYouCard?.classList.remove('hidden');
     if (suggestionInput) suggestionInput.value = '';
 
     soundSynth.playComplete();
-    showToast('Thank you for the suggestion!', 'success');
+    showToast('Suggestion sent! An email notification has been dispatched.', 'success');
   }
 
   function handleWriteAnotherSuggestion() {
@@ -1219,21 +1239,9 @@
     }
 
     const senderEmail = senderEmailInput?.value.trim() || (state.currentUser ? state.currentUser.email : 'Not provided');
-    const targetEmail = 'harshjhahjh2008@gmail.com';
-    const subject = encodeURIComponent('TaskFlow Problem Report');
-    const body = encodeURIComponent(
-      `TaskFlow Problem Report\n` +
-      `=========================================\n\n` +
-      `What is your problem?\n${problem}\n\n` +
-      `=========================================\n` +
-      `Sender Contact: ${senderEmail}\n` +
-      `Timestamp: ${new Date().toLocaleString()}\n` +
-      `Platform: TaskFlow Executive Productivity\n`
-    );
+    const targetEmail = 'harshjha.hj2008@gmail.com';
 
-    const mailtoUrl = `mailto:${targetEmail}?subject=${subject}&body=${body}`;
-
-    // Record problem locally as backup
+    // 1. Record problem locally as backup
     try {
       const stored = JSON.parse(localStorage.getItem(STORAGE_PROBLEMS_KEY) || '[]');
       stored.unshift({
@@ -1246,15 +1254,31 @@
       console.warn('Could not save problem record', e);
     }
 
-    // Launch email client to send directly to harshjhahjh2008@gmail.com
-    window.location.href = mailtoUrl;
+    // 2. Dispatch real email directly to harshjha.hj2008@gmail.com via FormSubmit AJAX
+    fetch('https://formsubmit.co/ajax/harshjha.hj2008@gmail.com', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({
+        _subject: 'TaskFlow: New Support & Help Problem Report',
+        problemDescription: problem,
+        senderContactEmail: senderEmail,
+        timestamp: new Date().toLocaleString()
+      })
+    }).then(res => {
+      console.log('Support problem emailed to harshjha.hj2008@gmail.com', res);
+    }).catch(err => {
+      console.warn('Support email dispatch warning:', err);
+    });
 
     // Show confirmation banner
     if (banner) banner.classList.remove('hidden');
     if (problemInput) problemInput.value = '';
 
     soundSynth.playComplete();
-    showToast('Opening your email client to send to harshjhahjh2008@gmail.com...', 'success');
+    showToast('Problem report sent! Email dispatched to harshjha.hj2008@gmail.com', 'success');
   }
 
   // --- MODAL: TASK CREATION & EDITING ---
@@ -1597,15 +1621,15 @@
     document.getElementById('loginModal')?.classList.add('hidden');
   }
 
-  function executeSignUp(email, password, confirmPassword, rememberMe = false) {
+  function executeSignUp(email, password, confirmPassword, rememberMe = true) {
     if (!email || !password || !confirmPassword) {
       showToast('Please fill in all registration fields.', 'warning');
       return;
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      showToast('Please enter a valid email address.', 'warning');
+    const gmailRegex = /^[a-zA-Z0-9._%+-]+@gmail\.com$/i;
+    if (!gmailRegex.test(email)) {
+      showToast('Please enter a valid @gmail.com address. Fake or non-Gmail addresses are not accepted.', 'warning');
       return;
     }
 
@@ -1622,7 +1646,7 @@
     const normalizedEmail = email.toLowerCase();
     const existing = state.accounts.find(a => a.email.toLowerCase() === normalizedEmail);
     if (existing) {
-      showToast('An account with this email already exists. Please log in.', 'warning');
+      showToast('An account with this email already exists. Please log in directly.', 'info');
       setGateAuthMode('signin');
       setAuthMode('signin');
       const gateLoginEmail = document.getElementById('gateInputLoginEmail');
@@ -1641,16 +1665,10 @@
     state.accounts.push(newAccount);
     state.currentUser = { email: newAccount.email, createdAt: newAccount.createdAt };
 
-    // Remember Me session handling
-    if (rememberMe) {
-      localStorage.setItem(STORAGE_SESSION_KEY, JSON.stringify(state.currentUser));
-      sessionStorage.removeItem(STORAGE_SESSION_KEY);
-    } else {
-      sessionStorage.setItem(STORAGE_SESSION_KEY, JSON.stringify(state.currentUser));
-      localStorage.removeItem(STORAGE_SESSION_KEY);
-    }
+    // Always persist session permanently so user stays logged in across restarts
+    localStorage.setItem(STORAGE_SESSION_KEY, JSON.stringify(state.currentUser));
 
-    // Load tasks for this new user (empty initial task list)
+    // Load tasks for this new user
     const userEmailKey = 'taskflow_tasks_' + normalizedEmail;
     const existingTasks = localStorage.getItem(userEmailKey);
     state.tasks = existingTasks ? JSON.parse(existingTasks) : [];
@@ -1661,19 +1679,25 @@
     renderAll();
     particleCelebration.trigger();
     soundSynth.playComplete();
-    showToast(`Account created! Welcome, ${normalizedEmail}`, 'success');
+    showToast(`Account created & logged in! Welcome, ${normalizedEmail}`, 'success');
   }
 
-  function executeSignIn(email, password, rememberMe = false) {
+  function executeSignIn(email, password, rememberMe = true) {
     if (!email || !password) {
-      showToast('Please enter both email and password.', 'warning');
+      showToast('Please enter both your Gmail and password.', 'warning');
+      return;
+    }
+
+    const gmailRegex = /^[a-zA-Z0-9._%+-]+@gmail\.com$/i;
+    if (!gmailRegex.test(email)) {
+      showToast('Please enter a valid @gmail.com address.', 'warning');
       return;
     }
 
     const normalizedEmail = email.toLowerCase();
     const account = state.accounts.find(a => a.email.toLowerCase() === normalizedEmail);
     if (!account) {
-      showToast('No account found with this email. Please create an account first.', 'warning');
+      showToast('No account found with this email. Please click Sign Up to create your account.', 'warning');
       setGateAuthMode('signup');
       setAuthMode('signup');
       return;
@@ -1686,14 +1710,8 @@
 
     state.currentUser = { email: account.email, createdAt: account.createdAt };
 
-    // Remember Me session handling
-    if (rememberMe) {
-      localStorage.setItem(STORAGE_SESSION_KEY, JSON.stringify(state.currentUser));
-      sessionStorage.removeItem(STORAGE_SESSION_KEY);
-    } else {
-      sessionStorage.setItem(STORAGE_SESSION_KEY, JSON.stringify(state.currentUser));
-      localStorage.removeItem(STORAGE_SESSION_KEY);
-    }
+    // Always persist session permanently so user stays logged in
+    localStorage.setItem(STORAGE_SESSION_KEY, JSON.stringify(state.currentUser));
 
     // Load this specific user's tasks
     const userEmailKey = 'taskflow_tasks_' + normalizedEmail;
@@ -1705,7 +1723,7 @@
     updateAuthUI();
     renderAll();
     soundSynth.playComplete();
-    showToast(`Welcome back, ${account.email}!` + (rememberMe ? ' (Remembered)' : ''), 'success');
+    showToast(`Welcome back, ${account.email}! You are securely logged in.`, 'success');
   }
 
   function executeSignOut() {
@@ -2027,8 +2045,182 @@
     document.getElementById('btnSubmitSuggestionSimple')?.addEventListener('click', handleSubmitSuggestionSimple);
     document.getElementById('btnWriteAnotherSuggestion')?.addEventListener('click', handleWriteAnotherSuggestion);
 
-    // 12. Support & Help (Send Problem to harshjhahjh2008@gmail.com)
+    // 12. Support & Help (Send Problem to harshjha.hj2008@gmail.com)
     document.getElementById('btnSendSupportProblem')?.addEventListener('click', handleSendSupportProblem);
+
+    // 13. Notifications Center Events
+    const btnNotif = document.getElementById('btnNotificationBell');
+    const notifDropdown = document.getElementById('notificationDropdown');
+    btnNotif?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      notifDropdown?.classList.toggle('hidden');
+      checkDeadlinesAndDailyWork(false);
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!notifDropdown?.contains(e.target) && e.target !== btnNotif) {
+        notifDropdown?.classList.add('hidden');
+      }
+    });
+
+    document.getElementById('btnEnableDesktopNotifs')?.addEventListener('click', async () => {
+      if ('Notification' in window) {
+        const perm = await Notification.requestPermission();
+        if (perm === 'granted') {
+          showToast('Desktop notifications enabled!', 'success');
+          checkDeadlinesAndDailyWork(true);
+        } else {
+          showToast('Notification permission was denied in your browser settings.', 'warning');
+        }
+      }
+    });
+  }
+
+  // --- DEADLINE & DAILY WORK NOTIFICATION ENGINE ---
+  let notifiedAlertsCache = {};
+
+  function checkDeadlinesAndDailyWork(triggerAlerts = false) {
+    if (!state.tasks || state.tasks.length === 0) {
+      updateNotificationUI([]);
+      return;
+    }
+
+    const todayStr = getTodayDateString();
+    const today = new Date(todayStr + 'T00:00:00');
+    const alerts = [];
+
+    state.tasks.forEach(task => {
+      // 1. Daily routine tasks not completed today
+      if (task.isDaily) {
+        const isDoneToday = Array.isArray(task.completedDates) && task.completedDates.includes(todayStr);
+        if (!isDoneToday) {
+          alerts.push({
+            id: `daily_${task.id}_${todayStr}`,
+            type: 'daily',
+            title: task.title,
+            message: 'Daily routine not yet completed today!',
+            urgency: 'high',
+            badge: 'Daily'
+          });
+        }
+      } else if (!task.completed) {
+        // 2. Deadline tasks (1 or 2 days remaining, or overdue)
+        const dueStr = task.dueDate || (task.schedules && task.schedules[0] ? task.schedules[0].date : null);
+        if (dueStr) {
+          const dueDate = new Date(dueStr + 'T00:00:00');
+          const diffTime = dueDate.getTime() - today.getTime();
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+          if (diffDays < 0) {
+            alerts.push({
+              id: `overdue_${task.id}_${dueStr}`,
+              type: 'overdue',
+              title: task.title,
+              message: `Overdue by ${Math.abs(diffDays)} day${Math.abs(diffDays) > 1 ? 's' : ''}!`,
+              urgency: 'urgent',
+              badge: 'Overdue'
+            });
+          } else if (diffDays === 0) {
+            alerts.push({
+              id: `due_today_${task.id}_${dueStr}`,
+              type: 'today',
+              title: task.title,
+              message: 'Deadline is TODAY!',
+              urgency: 'urgent',
+              badge: 'Due Today'
+            });
+          } else if (diffDays === 1) {
+            alerts.push({
+              id: `due_1_${task.id}_${dueStr}`,
+              type: 'soon',
+              title: task.title,
+              message: 'Deadline is tomorrow (1 day remaining)!',
+              urgency: 'high',
+              badge: '1 Day Left'
+            });
+          } else if (diffDays === 2) {
+            alerts.push({
+              id: `due_2_${task.id}_${dueStr}`,
+              type: 'upcoming',
+              title: task.title,
+              message: 'Deadline in 2 days.',
+              urgency: 'medium',
+              badge: '2 Days Left'
+            });
+          }
+        }
+      }
+    });
+
+    updateNotificationUI(alerts);
+
+    // If triggerAlerts is requested, fire notification + sound for newly detected items
+    if (triggerAlerts && alerts.length > 0) {
+      alerts.forEach(alertItem => {
+        if (!notifiedAlertsCache[alertItem.id]) {
+          notifiedAlertsCache[alertItem.id] = true;
+          soundSynth.playAlert();
+          showToast(`${alertItem.badge}: ${alertItem.title} - ${alertItem.message}`, alertItem.urgency === 'urgent' ? 'warning' : 'info');
+
+          if ("Notification" in window && Notification.permission === "granted") {
+            try {
+              new Notification(`TaskFlow Alert: ${alertItem.title}`, {
+                body: alertItem.message,
+                icon: "🔔"
+              });
+            } catch (e) {
+              console.warn(e);
+            }
+          }
+        }
+      });
+    }
+  }
+
+  function updateNotificationUI(alerts) {
+    const badge = document.getElementById('notifBadge');
+    const list = document.getElementById('notificationList');
+
+    if (badge) {
+      if (alerts.length > 0) {
+        badge.textContent = alerts.length > 9 ? '9+' : alerts.length;
+        badge.classList.remove('hidden');
+      } else {
+        badge.classList.add('hidden');
+      }
+    }
+
+    if (list) {
+      if (alerts.length === 0) {
+        list.innerHTML = `
+          <div class="py-6 text-center text-slate-400 dark:text-slate-500">
+            <span class="text-2xl block mb-1">🎉</span>
+            <span>All caught up! No upcoming deadlines or pending daily routines.</span>
+          </div>
+        `;
+      } else {
+        list.innerHTML = alerts.map(a => {
+          let colorClass = 'text-blue-500 bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800';
+          if (a.urgency === 'urgent') {
+            colorClass = 'text-red-500 bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-800';
+          } else if (a.urgency === 'high') {
+            colorClass = 'text-amber-500 bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800';
+          }
+          return `
+            <div class="p-2.5 rounded-xl border ${colorClass} flex items-start gap-2.5 animate-flow-in">
+              <span class="text-sm mt-0.5">🔔</span>
+              <div class="flex-1">
+                <div class="font-bold flex items-center justify-between">
+                  <span class="truncate max-w-[160px]">${a.title}</span>
+                  <span class="text-[9px] px-1.5 py-0.5 rounded-full border border-current font-extrabold uppercase">${a.badge}</span>
+                </div>
+                <div class="text-[11px] opacity-85 mt-0.5">${a.message}</div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+    }
   }
 
   // --- Bootstrap Initialization ---
@@ -2039,6 +2231,10 @@
     applyTheme();
     updateAuthUI();
     navigateToPage('tasks');
+
+    // Run deadline & daily work notification check on startup and every 60s
+    setTimeout(() => checkDeadlinesAndDailyWork(true), 1500);
+    setInterval(() => checkDeadlinesAndDailyWork(true), 60000);
   }
 
   if (document.readyState === 'loading') {
