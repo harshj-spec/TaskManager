@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TaskFlow</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0f5ff',
+              100: '#e5edff',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+
+  <link rel="stylesheet" href="styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body class="bg-slate-50 text-slate-900 dark:bg-[#080c15] dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-200 antialiased selection:bg-blue-500 selection:text-white">
+  
+  <!-- Particle canvas for completion celebration -->
+  <canvas id="celebrationCanvas" class="pointer-events-none fixed inset-0 z-50 w-full h-full"></canvas>
+
+  <!-- Top Navigation Bar -->
+  <header class="sticky top-0 z-40 bg-white/90 dark:bg-[#0c1220]/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+      
+      <!-- Brand Logo -->
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-violet-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20 flex-shrink-0 cursor-pointer" id="navLogoBtn">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.3" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+          </svg>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="font-extrabold text-xl tracking-tight text-slate-900 dark:text-white cursor-pointer" id="navBrandText">TaskFlow</span>
+          </div>
+          <div class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span id="headerLiveClock">Loading clock...</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Navigation Links (SPA Page Switcher) -->
+      <nav class="hidden md:flex items-center gap-1 bg-slate-100 dark:bg-slate-800/70 p-1 rounded-xl border border-slate-200 dark:border-slate-700/60 text-xs font-semibold text-slate-600 dark:text-slate-300">
+        <button id="navLinkTasks" class="nav-page-btn active px-3.5 py-1.5 rounded-lg transition flex items-center gap-1.5">
+          <span>📋</span>
+          <span>Tasks</span>
+        </button>
+        <button id="navLinkImprove" class="nav-page-btn px-3.5 py-1.5 rounded-lg transition flex items-center gap-1.5">
+          <span>💡</span>
+          <span>Improve App</span>
+        </button>
+        <button id="navLinkSupport" class="nav-page-btn px-3.5 py-1.5 rounded-lg transition flex items-center gap-1.5">
+          <span>🎧</span>
+          <span>Support & Help</span>
+        </button>
+        <button id="navLinkPrivacy" class="nav-page-btn px-3.5 py-1.5 rounded-lg transition flex items-center gap-1.5">
+          <span>🔒</span>
+          <span>Privacy Policy</span>
+        </button>
+      </nav>
+
+      <!-- Right Header Actions (Sound, Theme, Auth Profile, New Task) -->
+      <div class="flex items-center gap-2">
+        
+        <!-- Sound Toggle -->
+        <button id="btnToggleSound" title="Toggle Audio Feedback" class="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 transition">
+          <svg id="iconSoundOn" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072M18.364 5.636a9 9 0 010 12.728M11 5L6 9H2v6h4l5 4V5z"/></svg>
+          <svg id="iconSoundOff" class="w-4 h-4 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z m11.414-4.586l4 4m0-4l-4 4"/></svg>
+        </button>
+
+        <!-- Upgraded Theme Toggle (Dark Mode) -->
+        <button id="btnToggleTheme" title="Toggle Dark/Light Mode" class="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 transition">
+          <svg id="iconSun" class="w-4 h-4 hidden text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 9h-1m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+          <svg id="iconMoon" class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
+        </button>
+
+        <!-- Data Dropdown Trigger -->
+        <div class="relative">
+          <button id="btnDataMenu" title="Backup & Options" class="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/></svg>
+          </button>
+          
+          <div id="dataMenuDropdown" class="hidden absolute right-0 mt-2 w-56 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl py-2 z-50 text-xs">
+            <button id="btnExportJson" class="w-full text-left px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 text-slate-700 dark:text-slate-200">
+              <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+              Export Tasks Backup (JSON)
+            </button>
+            <label class="w-full text-left px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 text-slate-700 dark:text-slate-200 cursor-pointer">
+              <svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l4-4m0 0l4 4m-4-4v12"/></svg>
+              Import Tasks Backup (JSON)
+              <input type="file" id="inputImportJson" accept=".json" class="hidden">
+            </label>
+            <div class="border-t border-slate-100 dark:border-slate-800 my-1"></div>
+            <button id="btnLoadSamples" class="w-full text-left px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 text-slate-700 dark:text-slate-200">
+              <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+              Reload Sample Tasks
+            </button>
+            <button id="btnClearAll" class="w-full text-left px-4 py-2 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2 text-rose-600 dark:text-rose-400">
+              <svg class="w-4 h-4 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+              Delete All Tasks
+            </button>
+          </div>
+        </div>
+
+        <!-- User Profile / Login Button -->
+        <button id="btnUserProfile" title="User Account" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 transition">
+          <div class="w-5 h-5 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-500 text-white flex items-center justify-center text-[10px] font-bold" id="headerUserAvatar">U</div>
+          <span id="headerUserName" class="hidden sm:inline">User</span>
+        </button>
+
+        <!-- Primary Add Task Button -->
+        <button id="btnOpenNewTaskModal" class="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-semibold text-xs tracking-wide shadow-md shadow-blue-500/25 transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.3" d="M12 4v16m8-8H4"/></svg>
+          <span class="hidden sm:inline">New Task</span>
+        </button>
+      </div>
+
+    </div>
+
+    <!-- Mobile Navigation Sub-bar -->
+    <div class="md:hidden flex items-center justify-around border-t border-slate-200 dark:border-slate-800 px-2 py-1.5 bg-slate-50 dark:bg-[#0c1220] text-xs font-semibold">
+      <button class="nav-page-btn active px-2.5 py-1 rounded-lg" data-page="tasks">📋 Tasks</button>
+      <button class="nav-page-btn px-2.5 py-1 rounded-lg" data-page="improve">💡 Improve</button>
+      <button class="nav-page-btn px-2.5 py-1 rounded-lg" data-page="support">🎧 Support</button>
+      <button class="nav-page-btn px-2.5 py-1 rounded-lg" data-page="privacy">🔒 Privacy</button>
+    </div>
+  </header>
+
+  <!-- Main View Container -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full flex-1">
+
+    <!-- ========================================== -->
+    <!-- PAGE 1: TASKS DASHBOARD                   -->
+    <!-- ========================================== -->
+    <div id="viewPageTasks" class="space-y-6">
+
+      <!-- ========================================== -->
+      <!-- AUTHENTICATION GATE (Shown when NOT logged in) -->
+      <!-- ========================================== -->
+      <div id="authLockScreen" class="animate-flow-in max-w-xl mx-auto py-6 px-2">
+        <div class="surface-card bg-white dark:bg-[#101828] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-10 shadow-2xl space-y-6 text-center relative overflow-hidden">
+          
+          <!-- Background ambient glow -->
+          <div class="absolute -top-24 -right-24 w-48 h-48 bg-blue-500/10 dark:bg-blue-500/20 rounded-full blur-3xl pointer-events-none"></div>
+          <div class="absolute -bottom-24 -left-24 w-48 h-48 bg-indigo-500/10 dark:bg-indigo-500/20 rounded-full blur-3xl pointer-events-none"></div>
+
+          <!-- Logo & Badges -->
+          <div class="relative z-10">
+            <div class="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center text-3xl shadow-xl shadow-blue-500/30">
+              📋
+            </div>
+            <span class="inline-block mt-4 text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300">
+              Personal Workspace Access
+            </span>
+            <h2 class="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight mt-2">
+              Sign In to Access Your Tasks
+            </h2>
+            <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-2 max-w-md mx-auto leading-relaxed">
+              First, create an account or log in with your email and password. Once authenticated, you can view your pending tasks, create new tasks, and manage dynamic urgency schedules.
+            </p>
+          </div>
+
+          <!-- Auth Switcher Tabs (Default to Create Account) -->
+          <div class="p-1.5 border border-slate-200 dark:border-slate-800 rounded-2xl bg-slate-50 dark:bg-slate-900 flex gap-1 text-xs font-bold max-w-xs mx-auto relative z-10">
+            <button id="gateTabBtnSignUp" type="button" class="flex-1 py-2 rounded-xl bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm transition">
+              Create Account
+            </button>
+            <button id="gateTabBtnSignIn" type="button" class="flex-1 py-2 rounded-xl text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition">
+              Log In
+            </button>
+          </div>
+
+          <!-- Auth Forms Section -->
+          <div class="text-left space-y-4 pt-1 relative z-10">
+            
+            <!-- Gate Form: Sign Up (First make an account) -->
+            <form id="gateFormSignUp" class="space-y-4">
+              <div>
+                <label for="gateInputRegisterEmail" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Email ID</label>
+                <input type="email" id="gateInputRegisterEmail" required placeholder="name@example.com" class="w-full text-xs font-semibold bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+              </div>
+
+              <div>
+                <label for="gateInputRegisterPassword" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Set Password</label>
+                <input type="password" id="gateInputRegisterPassword" required placeholder="Create a password (min 6 characters)" minlength="6" class="w-full text-xs font-semibold bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+              </div>
+
+              <div>
+                <label for="gateInputRegisterConfirmPassword" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Confirm Password</label>
+                <input type="password" id="gateInputRegisterConfirmPassword" required placeholder="Re-enter password" minlength="6" class="w-full text-xs font-semibold bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+              </div>
+
+              <!-- Remember Me Checkbox -->
+              <div class="flex items-center justify-between pt-1">
+                <label class="flex items-center gap-2 cursor-pointer select-none">
+                  <input type="checkbox" id="gateRememberMeSignUp" class="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 dark:border-slate-700 dark:bg-slate-800">
+                  <span class="text-xs font-medium text-slate-600 dark:text-slate-400">Remember Me on this device</span>
+                </label>
+              </div>
+
+              <div class="pt-2">
+                <button type="submit" class="w-full py-3 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/25 transition active:scale-95 flex items-center justify-center gap-2">
+                  <span>Create Account & Start Managing Tasks</span>
+                  <span>→</span>
+                </button>
+              </div>
+
+              <p class="text-center text-xs text-slate-500 dark:text-slate-400 pt-1">
+                Already have an account? <button type="button" id="gateLinkSwitchToSignIn" class="text-blue-600 dark:text-blue-400 font-bold hover:underline">Log in</button>
+              </p>
+            </form>
+
+            <!-- Gate Form: Log In -->
+            <form id="gateFormSignIn" class="space-y-4 hidden">
+              <div>
+                <label for="gateInputLoginEmail" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Email ID</label>
+                <input type="email" id="gateInputLoginEmail" required placeholder="name@example.com" class="w-full text-xs font-semibold bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+              </div>
+
+              <div>
+                <label for="gateInputLoginPassword" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Password</label>
+                <input type="password" id="gateInputLoginPassword" required placeholder="Enter your password" class="w-full text-xs font-semibold bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+              </div>
+
+              <!-- Remember Me Checkbox -->
+              <div class="flex items-center justify-between pt-1">
+                <label class="flex items-center gap-2 cursor-pointer select-none">
+                  <input type="checkbox" id="gateRememberMeSignIn" class="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 dark:border-slate-700 dark:bg-slate-800">
+                  <span class="text-xs font-medium text-slate-600 dark:text-slate-400">Remember Me</span>
+                </label>
+              </div>
+
+              <div class="pt-2">
+                <button type="submit" class="w-full py-3 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/25 transition active:scale-95 flex items-center justify-center gap-2">
+                  <span>Log In to Workspace</span>
+                  <span>→</span>
+                </button>
+              </div>
+
+              <p class="text-center text-xs text-slate-500 dark:text-slate-400 pt-1">
+                Don't have an account yet? <button type="button" id="gateLinkSwitchToSignUp" class="text-blue-600 dark:text-blue-400 font-bold hover:underline">Create an account</button>
+              </p>
+            </form>
+
+          </div>
+
+          <!-- Safe & Private Badges -->
+          <div class="pt-5 border-t border-slate-100 dark:border-slate-800/80 grid grid-cols-3 gap-3 text-[11px] text-slate-500 dark:text-slate-400 relative z-10">
+            <div class="flex flex-col items-center gap-1">
+              <span class="text-base">🔒</span>
+              <span class="font-semibold">100% Private</span>
+            </div>
+            <div class="flex flex-col items-center gap-1">
+              <span class="text-base">⚡</span>
+              <span class="font-semibold">Dynamic Urgency</span>
+            </div>
+            <div class="flex flex-col items-center gap-1">
+              <span class="text-base">📅</span>
+              <span class="font-semibold">Daily Routines</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ========================================== -->
+      <!-- AUTHENTICATED TASKS DASHBOARD              -->
+      <!-- (Visible ONLY when logged in)              -->
+      <!-- ========================================== -->
+      <div id="authTasksDashboard" class="space-y-6 hidden">
+
+        <!-- KPI Summary Header Metrics (with smooth entrance animation) -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 animate-flow-in">
+        
+        <!-- Metric 1: Overdue & Critical Urgency -->
+        <div class="surface-card bg-white dark:bg-[#11192d] border border-slate-200/80 dark:border-slate-800/80 rounded-2xl p-4 shadow-sm relative overflow-hidden transition-all">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Critical / Overdue</span>
+            <span class="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
+          </div>
+          <div class="mt-2 flex items-baseline gap-2">
+            <span id="metricOverdueCount" class="text-2xl font-black text-rose-600 dark:text-rose-400">0</span>
+            <span class="text-[11px] font-medium text-slate-400">Urgent attention</span>
+          </div>
+          <div class="absolute bottom-0 left-0 right-0 h-1 bg-rose-500"></div>
+        </div>
+
+        <!-- Metric 2: Due Today -->
+        <div class="surface-card bg-white dark:bg-[#11192d] border border-slate-200/80 dark:border-slate-800/80 rounded-2xl p-4 shadow-sm relative overflow-hidden transition-all">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Due Today</span>
+            <span class="text-amber-500 text-xs">⏰</span>
+          </div>
+          <div class="mt-2 flex items-baseline gap-2">
+            <span id="metricDueTodayCount" class="text-2xl font-black text-amber-600 dark:text-amber-400">0</span>
+            <span class="text-[11px] font-medium text-slate-400">Daily focus</span>
+          </div>
+          <div class="absolute bottom-0 left-0 right-0 h-1 bg-amber-500"></div>
+        </div>
+
+        <!-- Metric 3: Total Pending Tasks -->
+        <div class="surface-card bg-white dark:bg-[#11192d] border border-slate-200/80 dark:border-slate-800/80 rounded-2xl p-4 shadow-sm relative overflow-hidden transition-all">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Pending</span>
+            <span class="text-blue-500 text-xs">📋</span>
+          </div>
+          <div class="mt-2 flex items-baseline gap-2">
+            <span id="metricTotalPendingCount" class="text-2xl font-black text-blue-600 dark:text-blue-400">0</span>
+            <span class="text-[11px] font-medium text-slate-400">In backlog</span>
+          </div>
+          <div class="absolute bottom-0 left-0 right-0 h-1 bg-blue-500"></div>
+        </div>
+
+        <!-- Metric 4: Daily Completion Progress -->
+        <div class="surface-card bg-white dark:bg-[#11192d] border border-slate-200/80 dark:border-slate-800/80 rounded-2xl p-4 shadow-sm relative overflow-hidden transition-all">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Completion Rate</span>
+            <span id="metricCompletionRatio" class="text-xs font-bold text-emerald-600 dark:text-emerald-400">0%</span>
+          </div>
+          <div class="mt-2 flex items-baseline gap-2">
+            <span id="metricCompletedCount" class="text-2xl font-black text-emerald-600 dark:text-emerald-400">0</span>
+            <span class="text-[11px] font-medium text-slate-400">Tasks finished</span>
+          </div>
+          <div class="absolute bottom-0 left-0 right-0 h-1 bg-slate-100 dark:bg-slate-800">
+            <div id="metricProgressBar" class="h-full bg-emerald-500 transition-all duration-500" style="width: 0%"></div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Animated Focus & Workflow Status Banner (Replaces the empty tile spot seamlessly) -->
+      <div class="animate-flow-in surface-card bg-gradient-to-r from-blue-50/70 via-indigo-50/40 to-slate-50 dark:from-slate-900/90 dark:via-indigo-950/30 dark:to-slate-900/90 border border-blue-200/60 dark:border-slate-800 rounded-2xl p-3.5 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-sm">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-xl bg-blue-600/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center flex-shrink-0">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+          </div>
+          <div>
+            <div class="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+              <span>TaskFlow Priority Stream</span>
+              <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300">Live Auto-Sort</span>
+            </div>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400">Tasks automatically re-order by approaching deadlines and urgency.</p>
+          </div>
+        </div>
+        <button id="btnQuickCreateTaskBanner" class="px-3.5 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-blue-600 dark:text-blue-400 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap shadow-sm">
+          <span>+ Create Task</span>
+        </button>
+      </div>
+
+      <!-- Filter & View Tabs Bar -->
+      <div class="animate-flow-in flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 surface-card bg-white dark:bg-[#0f172a] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-2.5 shadow-sm">
+        
+        <!-- View Mode Tabs -->
+        <div class="flex items-center gap-1 overflow-x-auto p-1 bg-slate-100 dark:bg-slate-800/60 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300">
+          <button id="tabUrgency" class="tab-btn active px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 whitespace-nowrap">
+            <span>🔥</span>
+            <span>Urgency Order</span>
+          </button>
+          <button id="tabToday" class="tab-btn px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 whitespace-nowrap">
+            <span>📅</span>
+            <span>Today's Tasks</span>
+          </button>
+          <button id="tabDailyRoutines" class="tab-btn px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 whitespace-nowrap">
+            <span>🔁</span>
+            <span>Daily Routines</span>
+          </button>
+          <button id="tabAllTasks" class="tab-btn px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 whitespace-nowrap">
+            <span>📑</span>
+            <span>All Backlog</span>
+          </button>
+        </div>
+
+        <!-- Search & Category Filters -->
+        <div class="flex items-center gap-2">
+          <!-- Search Input -->
+          <div class="relative flex-1 sm:w-56">
+            <span class="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-400">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            </span>
+            <input type="text" id="searchInput" placeholder="Search tasks & subtasks..." class="w-full text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl pl-8 pr-3 py-1.5 text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500">
+          </div>
+
+          <!-- Category Filter -->
+          <select id="filterCategory" class="text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-slate-700 dark:text-slate-300 focus:outline-none">
+            <option value="ALL">All Categories</option>
+            <option value="Work">💼 Work</option>
+            <option value="Personal">🏡 Personal</option>
+            <option value="Finance">💰 Finance</option>
+            <option value="Health">💪 Health</option>
+            <option value="Study">📚 Study</option>
+            <option value="Routine">🔁 Routine</option>
+            <option value="General">✨ General</option>
+          </select>
+        </div>
+
+      </div>
+
+      <!-- SECTION: PENDING TASKS (KEPT IN DYNAMIC URGENCY ORDER) -->
+      <section aria-labelledby="pendingSectionHeading" class="space-y-3">
+        
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <div class="w-3 h-3 rounded-full bg-amber-500 animate-pulse"></div>
+            <h2 id="pendingSectionHeading" class="font-extrabold text-lg text-slate-900 dark:text-white tracking-tight">Pending Tasks</h2>
+            <span id="badgePendingCount" class="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-200 dark:border-amber-800">0</span>
+          </div>
+
+          <div class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+            <span class="inline-flex items-center gap-1 font-medium bg-slate-100 dark:bg-slate-800/60 px-2.5 py-1 rounded-lg">
+              <span>⚡ Sorted by:</span>
+              <span class="font-bold text-slate-700 dark:text-slate-200">Urgency (Deadline Proximity)</span>
+            </span>
+          </div>
+        </div>
+
+        <!-- Pending Tasks List Container -->
+        <div id="pendingTasksContainer" class="space-y-3 min-h-[140px]">
+          <!-- Dynamically rendered task cards -->
+        </div>
+
+        <!-- Empty state when no pending tasks -->
+        <div id="emptyPendingState" class="hidden text-center py-16 px-4 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl bg-white/40 dark:bg-slate-900/40">
+          <div class="w-12 h-12 mx-auto rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-3">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M5 13l4 4L19 7"/></svg>
+          </div>
+          <h3 class="font-bold text-slate-800 dark:text-slate-200 text-base">You are all caught up!</h3>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">No pending tasks matching this filter. Click "+ New Task" above to add your next item.</p>
+        </div>
+
+      </section>
+
+      <!-- SECTION: COMPLETED TASKS -->
+      <section aria-labelledby="completedSectionHeading" class="space-y-3 pt-6 border-t border-slate-200 dark:border-slate-800">
+        
+        <div class="flex items-center justify-between">
+          <button id="btnToggleCompletedSection" class="flex items-center gap-2 group text-left">
+            <svg id="iconCompletedChevron" class="w-4 h-4 text-slate-400 group-hover:text-slate-600 transition-transform transform rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            <div class="flex items-center gap-2">
+              <div class="w-3 h-3 rounded-full bg-emerald-500"></div>
+              <h2 id="completedSectionHeading" class="font-bold text-lg text-slate-900 dark:text-white tracking-tight">Completed Tasks</h2>
+              <span id="badgeCompletedCount" class="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">0</span>
+            </div>
+          </button>
+
+          <button id="btnClearCompleted" class="text-xs font-semibold text-slate-400 hover:text-rose-500 transition hidden">
+            Clear Completed Tasks
+          </button>
+        </div>
+
+        <!-- Completed Tasks List Container -->
+        <div id="completedTasksContainer" class="space-y-3">
+          <!-- Dynamically rendered completed cards -->
+        </div>
+
+        <!-- Empty state when no completed tasks -->
+        <div id="emptyCompletedState" class="text-center py-8 px-4 border border-dashed border-slate-200 dark:border-slate-800/80 rounded-2xl bg-slate-50/50 dark:bg-slate-900/30">
+          <p class="text-xs text-slate-400">Completed tasks will appear here once you tick them off.</p>
+        </div>
+
+      </section>
+
+      </div>
+      <!-- End of #authTasksDashboard -->
+
+    </div>
+
+    <!-- ========================================== -->
+    <!-- PAGE 2: HOW TO IMPROVE TASKFLOW           -->
+    <!-- ========================================== -->
+    <div id="viewPageImprove" class="hidden space-y-6 animate-flow-in max-w-3xl mx-auto">
+      
+      <!-- Blue Tile Header Banner -->
+      <div class="surface-card bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 text-white rounded-3xl p-6 sm:p-8 shadow-xl relative overflow-hidden">
+        <div class="relative z-10">
+          <span class="text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-white/20 text-white backdrop-blur-md">Feature Feedback</span>
+          <h2 class="text-2xl sm:text-3xl font-extrabold mt-3 tracking-tight">How to improve TaskFlow</h2>
+          <p class="text-xs sm:text-sm text-blue-100 mt-2 leading-relaxed">
+            We are constantly improving TaskFlow. Share your suggestions, ideas, or feature requests below!
+          </p>
+        </div>
+      </div>
+
+      <!-- Suggestion Submission Card (Only the bar) -->
+      <div id="cardSuggestionForm" class="surface-card bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-sm space-y-4">
+        <label for="inputUserSuggestion" class="block text-sm font-bold text-slate-800 dark:text-slate-200">
+          Write your ideas and suggestions:
+        </label>
+        
+        <div class="relative">
+          <textarea id="inputUserSuggestion" rows="4" placeholder="Write your ideas, thoughts, or suggestions to make TaskFlow better..." class="w-full text-sm bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"></textarea>
+        </div>
+
+        <div class="flex items-center justify-end">
+          <button id="btnSubmitSuggestionSimple" type="button" class="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs tracking-wide shadow-md shadow-blue-500/25 transition active:scale-95 flex items-center gap-2">
+            <span>Send Suggestion</span>
+            <span>→</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Thank You Message Card (shown after sending, nothing else) -->
+      <div id="cardSuggestionThankYou" class="hidden surface-card bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 rounded-3xl p-8 text-center space-y-3 animate-flow-in">
+        <div class="w-12 h-12 mx-auto rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-xl font-bold">
+          ✓
+        </div>
+        <h3 class="text-xl font-extrabold text-emerald-900 dark:text-emerald-200">Thank you for the suggestion</h3>
+        <p class="text-xs text-emerald-700 dark:text-emerald-400">Your feedback has been received.</p>
+        <div class="pt-2">
+          <button id="btnWriteAnotherSuggestion" class="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline">
+            Write another suggestion
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ========================================== -->
+    <!-- PAGE 3: SUPPORT & HELP                     -->
+    <!-- ========================================== -->
+    <div id="viewPageSupport" class="hidden space-y-6 animate-flow-in max-w-3xl mx-auto">
+      
+      <div class="surface-card bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-sm">
+        <div class="flex items-center gap-3">
+          <div class="w-11 h-11 rounded-2xl bg-blue-100 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400 flex items-center justify-center text-xl flex-shrink-0">
+            🎧
+          </div>
+          <div>
+            <h2 class="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white">Support & Help</h2>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Let us know what issue or difficulty you're experiencing.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="surface-card bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-sm space-y-5">
+        
+        <div>
+          <label for="textareaSupportProblem" class="block text-base font-extrabold text-slate-900 dark:text-white mb-2">
+            What is your problem?
+          </label>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mb-3">Please describe the problem you encountered in detail:</p>
+          <textarea id="textareaSupportProblem" rows="6" placeholder="Describe what went wrong or what problem you are facing..." class="w-full text-sm bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"></textarea>
+        </div>
+
+        <div>
+          <label for="inputSenderEmail" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+            Your Email (Optional, so we can reply back):
+          </label>
+          <input type="email" id="inputSenderEmail" placeholder="your-email@example.com" class="w-full text-xs font-medium bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
+          <span class="text-[11px] text-slate-400">Reports are sent directly to: <strong class="text-slate-700 dark:text-slate-300">harshjhahjh2008@gmail.com</strong></span>
+          <button id="btnSendSupportProblem" type="button" class="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs tracking-wide shadow-md shadow-blue-500/25 transition active:scale-95 flex items-center justify-center gap-2">
+            <span>Send</span>
+            <span>✉️</span>
+          </button>
+        </div>
+
+        <!-- Status confirmation banner after sending -->
+        <div id="supportSuccessBanner" class="hidden p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-300 animate-flow-in flex items-center gap-2.5">
+          <span>✅</span>
+          <span>Your problem report has been prepared and sent to <strong>harshjhahjh2008@gmail.com</strong>. Thank you for notifying us!</span>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- ========================================== -->
+    <!-- PAGE 4: PRIVACY POLICY                     -->
+    <!-- ========================================== -->
+    <div id="viewPagePrivacy" class="hidden space-y-6 animate-flow-in max-w-4xl mx-auto">
+      
+      <div class="surface-card bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-10 shadow-sm space-y-8">
+        
+        <!-- Header -->
+        <div class="border-b border-slate-200 dark:border-slate-800 pb-6">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="text-xs font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300">Official Policy</span>
+            <span class="text-xs text-slate-400">Effective Date: November 9, 2026</span>
+          </div>
+          <h2 class="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">TaskFlow Privacy Policy</h2>
+          <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
+            Your privacy is fundamental to our software design. This Privacy Policy describes how TaskFlow ("we", "our", or "the application") handles your personal data, schedule information, and account credentials.
+          </p>
+        </div>
+
+        <!-- Quick Summary Box -->
+        <div class="p-5 rounded-2xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200/60 dark:border-blue-900/50 space-y-2 text-xs">
+          <span class="font-extrabold text-blue-800 dark:text-blue-200 block text-sm">🛡️ Summary of Key Principles</span>
+          <p class="text-blue-900 dark:text-blue-300">• <strong>Zero Data Selling:</strong> We never sell, rent, monetize, or broker your personal information or task data to anyone.</p>
+          <p class="text-blue-900 dark:text-blue-300">• <strong>Offline-First Architecture:</strong> Your tasks, routines, subtasks, and deadlines remain stored on your local computer.</p>
+          <p class="text-blue-900 dark:text-blue-300">• <strong>Direct Contact:</strong> For any privacy questions, contact our data controller directly at <strong>harshjhahjh2008@gmail.com</strong>.</p>
+        </div>
+
+        <!-- Comprehensive Policy Sections -->
+        <div class="space-y-6 text-xs sm:text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+          
+          <section class="space-y-2">
+            <h3 class="font-extrabold text-base text-slate-900 dark:text-white">1. Introduction and Scope</h3>
+            <p>
+              TaskFlow operates as a high-performance productivity and task management web application. This policy applies to all users interacting with the TaskFlow platform. By creating an account or managing tasks within TaskFlow, you acknowledge the data handling practices outlined herein.
+            </p>
+          </section>
+
+          <section class="space-y-2">
+            <h3 class="font-extrabold text-base text-slate-900 dark:text-white">2. Information We Collect</h3>
+            <p>We believe in strict data minimization. We only handle information necessary to provide you with core scheduling functionality:</p>
+            <ul class="list-disc pl-5 space-y-1.5 text-xs">
+              <li><strong>Account Credentials:</strong> When you register, we collect your email address and an encrypted hash of your chosen password to facilitate authentication.</li>
+              <li><strong>Task & Schedule Data:</strong> Titles, descriptions, categories, priorities, due dates, scheduled times, recurrence settings, and subtask checklist items you enter into the application.</li>
+              <li><strong>Support Communications:</strong> If you use the Support & Help feature, we process the problem description and optional contact email you provide to respond to your inquiry.</li>
+              <li><strong>Device Configuration (Client-Side Only):</strong> Theme preference (Dark/Light mode) and audio settings, stored locally to maintain your display preferences across browser sessions.</li>
+            </ul>
+          </section>
+
+          <section class="space-y-2">
+            <h3 class="font-extrabold text-base text-slate-900 dark:text-white">3. How Your Information Is Used</h3>
+            <p>Your information is utilized exclusively for the following operational purposes:</p>
+            <ul class="list-disc pl-5 space-y-1 text-xs">
+              <li>Organizing, sorting, and displaying your daily pending and completed tasks.</li>
+              <li>Calculating real-time deadline proximity and urgency order rankings.</li>
+              <li>Automatically resetting recurring daily routines each morning while preserving historical completion streaks.</li>
+              <li>Facilitating direct email communication when you submit technical support requests to <strong>harshjhahjh2008@gmail.com</strong>.</li>
+            </ul>
+          </section>
+
+          <section class="space-y-2">
+            <h3 class="font-extrabold text-base text-slate-900 dark:text-white">4. Local Storage and Client-Side Security</h3>
+            <p>
+              TaskFlow is engineered with an <strong>Offline-First & Local-Storage Architecture</strong>. All task items, subtasks, and user profiles reside in your browser's local sandbox (<code class="font-mono bg-slate-100 dark:bg-slate-800 px-1 rounded">localStorage</code>). Your data does not traverse remote commercial servers or third-party cloud data lakes without your direct instruction.
+            </p>
+          </section>
+
+          <section class="space-y-2">
+            <h3 class="font-extrabold text-base text-slate-900 dark:text-white">5. Third-Party Disclosures & Tracking</h3>
+            <p>
+              We maintain a <strong>Zero-Sale and Zero-Tracking Policy</strong>:
+            </p>
+            <ul class="list-disc pl-5 space-y-1 text-xs">
+              <li>We do not sell, rent, license, or disclose user data to advertisers, data brokers, or marketing affiliates.</li>
+              <li>We do not utilize tracking pixels, session replay scripts (e.g. Hotjar), or invasive surveillance telemetry.</li>
+              <li>Third-party web services are restricted strictly to foundational CDNs (e.g. Google Fonts and Tailwind CSS) necessary for visual rendering.</li>
+            </ul>
+          </section>
+
+          <section class="space-y-2">
+            <h3 class="font-extrabold text-base text-slate-900 dark:text-white">6. Data Ownership, Portability & Right to Erasure</h3>
+            <p>
+              You retain absolute ownership of all content entered into TaskFlow. You have the full right to:
+            </p>
+            <ul class="list-disc pl-5 space-y-1 text-xs">
+              <li><strong>Export Your Data:</strong> Generate a complete machine-readable JSON backup file of all tasks and schedules at any time using the one-click Export tool.</li>
+              <li><strong>Import / Transfer Data:</strong> Restore or migrate your data to another device without restrictions.</li>
+              <li><strong>Permanent Deletion (Right to Be Forgotten):</strong> Permanently wipe all tasks, user records, and preferences with the "Delete All Tasks" command or by clearing your browser's site cache.</li>
+            </ul>
+          </section>
+
+          <section class="space-y-2">
+            <h3 class="font-extrabold text-base text-slate-900 dark:text-white">7. Children's Privacy</h3>
+            <p>
+              TaskFlow is a general productivity tool and does not knowingly collect or solicit personal information from children under the age of 13. If you believe a child has provided us with personal information, please contact us at <strong>harshjhahjh2008@gmail.com</strong> for immediate deletion.
+            </p>
+          </section>
+
+          <section class="space-y-2">
+            <h3 class="font-extrabold text-base text-slate-900 dark:text-white">8. Updates to This Policy</h3>
+            <p>
+              We may revise this Privacy Policy periodically to reflect new features, performance enhancements, or regulatory adjustments. Any revisions will be reflected on this page with an updated Effective Date. Continued use of TaskFlow signifies acceptance of any updated terms.
+            </p>
+          </section>
+
+          <section class="space-y-2">
+            <h3 class="font-extrabold text-base text-slate-900 dark:text-white">9. Contact and Data Controller</h3>
+            <p>
+              If you have questions, concerns, or requests regarding this Privacy Policy or your personal data, please contact the application administrator directly:
+            </p>
+            <div class="p-4 rounded-xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs space-y-1 font-mono">
+              <p><strong>Administrator / Data Controller:</strong> Harsh Jha</p>
+              <p><strong>Primary Support Email:</strong> <a href="mailto:harshjhahjh2008@gmail.com" class="text-blue-600 dark:text-blue-400 underline font-bold">harshjhahjh2008@gmail.com</a></p>
+              <p><strong>Application:</strong> TaskFlow</p>
+            </div>
+          </section>
+
+        </div>
+
+        <div class="pt-4 border-t border-slate-200 dark:border-slate-800 flex justify-end">
+          <button id="btnReturnToTasksFromPrivacy" class="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs tracking-wide transition shadow-sm">
+            ← Return to Tasks Dashboard
+          </button>
+        </div>
+
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- ========================================== -->
+  <!-- MODAL 1: ADD / EDIT TASK                  -->
+  <!-- ========================================== -->
+  <div id="taskModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="surface-card bg-white dark:bg-[#101728] border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden animate-modal">
+      
+      <!-- Modal Header -->
+      <div class="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+        <div>
+          <h3 id="modalHeading" class="text-lg font-extrabold text-slate-900 dark:text-white">Create New Task</h3>
+          <p class="text-xs text-slate-500 dark:text-slate-400">Configure due dates, custom times, and subtasks</p>
+        </div>
+        <button id="btnCloseModal" class="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <!-- Modal Form -->
+      <form id="taskModalForm" class="p-6 space-y-4 max-h-[78vh] overflow-y-auto">
+        <input type="hidden" id="modalTaskId" value="">
+
+        <!-- Title -->
+        <div>
+          <label for="modalTitleInput" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+            Task Title <span class="text-rose-500">*</span>
+          </label>
+          <input type="text" id="modalTitleInput" required placeholder="e.g. Q4 Financial Review & Client Strategy" class="w-full text-sm bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50">
+        </div>
+
+        <!-- Description -->
+        <div>
+          <label for="modalDescInput" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+            Description / Notes (Optional)
+          </label>
+          <textarea id="modalDescInput" rows="2" placeholder="Key deliverables, meeting links, notes..." class="w-full text-sm bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none"></textarea>
+        </div>
+
+        <!-- Category & Base Priority -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label for="modalCategorySelect" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Category</label>
+            <select id="modalCategorySelect" class="w-full text-xs font-semibold bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-slate-800 dark:text-slate-200 focus:outline-none">
+              <option value="Work">💼 Work</option>
+              <option value="Personal">🏡 Personal</option>
+              <option value="Finance">💰 Finance</option>
+              <option value="Health">💪 Health</option>
+              <option value="Study">📚 Study</option>
+              <option value="Routine">🔁 Routine</option>
+              <option value="General">✨ General</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="modalPrioritySelect" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Base Priority</label>
+            <select id="modalPrioritySelect" class="w-full text-xs font-semibold bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-slate-800 dark:text-slate-200 focus:outline-none">
+              <option value="urgent">🔥 Urgent (Top priority)</option>
+              <option value="high">⚡ High priority</option>
+              <option value="medium" selected>🔹 Medium priority</option>
+              <option value="low">🌱 Low priority</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- RECURRENCE: DAILY TASK TOGGLE -->
+        <div class="p-4 rounded-2xl bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-800/60">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+              <span class="text-xl">🔁</span>
+              <div>
+                <label for="modalDailyCheckbox" class="text-xs font-extrabold text-slate-900 dark:text-white cursor-pointer">Daily Recurring Task</label>
+                <p class="text-[11px] text-slate-500 dark:text-slate-400">Resets automatically each day so you can complete it daily.</p>
+              </div>
+            </div>
+            <input type="checkbox" id="modalDailyCheckbox" class="w-5 h-5 rounded text-blue-600 focus:ring-blue-500 accent-blue-600 cursor-pointer">
+          </div>
+
+          <!-- Daily task specific time setting -->
+          <div id="modalDailyTimeSection" class="hidden mt-3 pt-3 border-t border-blue-200/60 dark:border-blue-800/60 flex items-center justify-between">
+            <span class="text-xs text-slate-700 dark:text-slate-300 font-semibold">Daily Deadline / Time:</span>
+            <input type="time" id="modalDailyTimeInput" class="text-xs font-semibold bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-800 rounded-lg px-3 py-1.5 text-slate-800 dark:text-slate-200">
+          </div>
+        </div>
+
+        <!-- SCHEDULE SECTION: DATES AND CUSTOM TIMES -->
+        <div id="modalScheduleSection" class="space-y-3">
+          <div class="flex items-center justify-between">
+            <div>
+              <label class="text-xs font-bold text-slate-800 dark:text-slate-200">📅 Due Dates & Custom Times</label>
+              <p class="text-[11px] text-slate-500 dark:text-slate-400">Set different times for different dates</p>
+            </div>
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300">Multi-Date</span>
+          </div>
+
+          <!-- Schedule items container -->
+          <div id="modalScheduleList" class="space-y-2">
+            <!-- Dynamically injected date/time rows -->
+          </div>
+
+          <button type="button" id="btnAddScheduleRow" class="text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 flex items-center gap-1.5 py-1">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            + Add another date & custom time
+          </button>
+        </div>
+
+        <!-- SUBTASKS / CHECKLIST SECTION -->
+        <div class="space-y-2.5 pt-3 border-t border-slate-200 dark:border-slate-800">
+          <div class="flex items-center justify-between">
+            <label class="text-xs font-bold text-slate-800 dark:text-slate-200">Subtasks & Micro-Steps</label>
+            <span id="modalSubtasksCountLabel" class="text-[11px] font-semibold text-slate-400">0 subtasks</span>
+          </div>
+
+          <!-- Add subtask row -->
+          <div class="flex items-center gap-2">
+            <input type="text" id="modalAddSubtaskInput" placeholder="Add a subtask step..." class="flex-1 text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-white focus:outline-none">
+            <button type="button" id="modalBtnAddSubtask" class="px-3.5 py-2 text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl transition">
+              + Add
+            </button>
+          </div>
+
+          <!-- Subtasks chips list -->
+          <div id="modalSubtaskList" class="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+            <!-- Dynamic list of subtasks -->
+          </div>
+        </div>
+
+        <!-- Modal Footer Actions -->
+        <div class="pt-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-3">
+          <button type="button" id="btnCancelModal" class="px-4 py-2 text-xs font-bold rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+            Cancel
+          </button>
+          <button type="submit" id="btnSaveTaskModal" class="px-5 py-2.5 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-600/25 transition active:scale-95">
+            Save Task
+          </button>
+        </div>
+      </form>
+
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL 2: USER LOGIN / SIGN-IN             -->
+  <!-- ========================================== -->
+  <div id="loginModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="surface-card bg-white dark:bg-[#101728] border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-modal">
+      
+      <!-- Login Header -->
+      <div class="px-6 py-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+        <div>
+          <h3 id="authModalHeading" class="text-lg font-extrabold text-slate-900 dark:text-white">Account</h3>
+          <p id="authModalSubheading" class="text-xs text-slate-500 dark:text-slate-400">Sign in or create an account with your email and password</p>
+        </div>
+        <button id="btnCloseLoginModal" class="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <!-- Auth Tabs Switcher (Log In vs Sign Up) -->
+      <div id="authTabsContainer" class="p-2 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex gap-1 text-xs font-bold">
+        <button id="tabBtnSignIn" class="flex-1 py-2 rounded-xl bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm transition">
+          Log In
+        </button>
+        <button id="tabBtnSignUp" class="flex-1 py-2 rounded-xl text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition">
+          Sign Up
+        </button>
+      </div>
+
+      <!-- State A: Form for Logging In / Signing Up -->
+      <div id="authFormSection" class="p-6">
+        
+        <!-- Form Log In -->
+        <form id="formSignIn" class="space-y-4">
+          <div>
+            <label for="inputLoginEmail" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Email ID</label>
+            <input type="email" id="inputLoginEmail" required placeholder="name@example.com" class="w-full text-xs font-semibold bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+
+          <div>
+            <label for="inputLoginPassword" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Password</label>
+            <input type="password" id="inputLoginPassword" required placeholder="Enter your password" class="w-full text-xs font-semibold bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+
+          <!-- Remember Me Checkbox -->
+          <div class="flex items-center justify-between pt-1">
+            <label class="flex items-center gap-2 cursor-pointer select-none">
+              <input type="checkbox" id="modalRememberMeSignIn" class="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 dark:border-slate-700 dark:bg-slate-800">
+              <span class="text-xs font-medium text-slate-600 dark:text-slate-400">Remember Me</span>
+            </label>
+          </div>
+
+          <div class="pt-2">
+            <button type="submit" class="w-full py-2.5 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/25 transition active:scale-95">
+              Log In
+            </button>
+          </div>
+
+          <p class="text-center text-xs text-slate-500 dark:text-slate-400 pt-1">
+            Don't have an account? <button type="button" id="linkSwitchToSignUp" class="text-blue-600 dark:text-blue-400 font-bold hover:underline">Sign up</button>
+          </p>
+        </form>
+
+        <!-- Form Sign Up (Create Account) -->
+        <form id="formSignUp" class="space-y-4 hidden">
+          <div>
+            <label for="inputRegisterEmail" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Email ID</label>
+            <input type="email" id="inputRegisterEmail" required placeholder="name@example.com" class="w-full text-xs font-semibold bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+
+          <div>
+            <label for="inputRegisterPassword" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Set Password</label>
+            <input type="password" id="inputRegisterPassword" required placeholder="Create a password (min 6 characters)" minlength="6" class="w-full text-xs font-semibold bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+
+          <div>
+            <label for="inputRegisterConfirmPassword" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Confirm Password</label>
+            <input type="password" id="inputRegisterConfirmPassword" required placeholder="Re-enter password" minlength="6" class="w-full text-xs font-semibold bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+
+          <!-- Remember Me Checkbox -->
+          <div class="flex items-center justify-between pt-1">
+            <label class="flex items-center gap-2 cursor-pointer select-none">
+              <input type="checkbox" id="modalRememberMeSignUp" class="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 dark:border-slate-700 dark:bg-slate-800">
+              <span class="text-xs font-medium text-slate-600 dark:text-slate-400">Remember Me on this device</span>
+            </label>
+          </div>
+
+          <div class="pt-2">
+            <button type="submit" class="w-full py-2.5 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/25 transition active:scale-95">
+              Create Account & Sign In
+            </button>
+          </div>
+
+          <p class="text-center text-xs text-slate-500 dark:text-slate-400 pt-1">
+            Already have an account? <button type="button" id="linkSwitchToSignIn" class="text-blue-600 dark:text-blue-400 font-bold hover:underline">Log in</button>
+          </p>
+        </form>
+
+      </div>
+
+      <!-- State B: Profile Card when currently logged in -->
+      <div id="authLoggedInSection" class="p-6 space-y-4 hidden">
+        <div class="p-4 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60 flex items-center gap-3">
+          <div class="w-10 h-10 rounded-full bg-blue-600 text-white font-extrabold flex items-center justify-center text-base" id="activeProfileAvatar">U</div>
+          <div class="flex-1 min-w-0">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">Currently Logged In</span>
+            <p class="text-xs font-bold text-slate-900 dark:text-white truncate" id="activeProfileEmail">user@example.com</p>
+          </div>
+        </div>
+
+        <div class="pt-2 flex items-center gap-2">
+          <button type="button" id="btnLogoutSession" class="w-full py-2.5 text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900 rounded-xl transition">
+            Sign Out
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
